@@ -15,6 +15,9 @@ import { UserModule } from './user/user.module';
       driver: ApolloDriver,
       autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
       sortSchema: true,
+      context: ({ req }) => ({ req }),
+      playground: true,
+      introspection: true,
       formatError: (err) => ({
         message: err.message,
         originalError: err.extensions?.originalError,

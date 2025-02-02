@@ -1,14 +1,75 @@
 import { Injectable } from '@nestjs/common';
-import { SignupInput } from 'src/models/auth.model';
-import { PrismaService } from 'src/prisma/prisma.service';
-import * as argon from 'argon2';
-import { User } from 'src/models/user.model';
+import { JwtService, TokenExpiredError } from '@nestjs/jwt';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import * as argon from 'argon2';
 import { GraphQLError } from 'graphql';
+import { USERNAME } from 'src/constants/const';
+import { GRAPHQL_ERROR_CODES } from 'src/constants/error.code';
+import {
+  JWTPayload,
+  SigninInput,
+  SigninResponse,
+  SignupInput,
+} from 'src/models/auth.model';
+import { BaseModel } from 'src/models/base.model';
+import { User } from 'src/models/user.model';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private jwt: JwtService,
+  ) {}
+
+  async signIn(credentials: SigninInput): Promise<SigninResponse> {
+    try {
+      const { email, password } = credentials;
+      const user = await this.getUserByEmail(email);
+      if (!user) {
+        throw new GraphQLError('Invalid credentials', {
+          extensions: {
+            code: GRAPHQL_ERROR_CODES.BAD_USER_INPUT,
+            invalidArgs: ['email', 'password'],
+          },
+        });
+      }
+      const isValidPass = await this.verifyPassword(password, user.password);
+      if (!isValidPass) {
+        throw new GraphQLError('Invalid credentials', {
+          extensions: {
+            code: GRAPHQL_ERROR_CODES.BAD_USER_INPUT,
+            invalidArgs: ['email', 'password'],
+          },
+        });
+      }
+      const payload: JWTPayload = {
+        sub: user.id,
+      };
+      const token = await this.jwt.signAsync(payload);
+      const session = await this.prisma.session.create({
+        data: {
+          token,
+          user: {
+            connect: {
+              id: user.id,
+            },
+          },
+        },
+      });
+
+      return {
+        token,
+        user,
+      };
+    } catch (err) {
+      throw new GraphQLError('Something went wrong', {
+        extensions: {
+          code: GRAPHQL_ERROR_CODES.INTERNAL_SERVER_ERROR,
+        },
+      });
+    }
+  }
 
   async signUp(credentials: SignupInput) {
     const { name, email, password } = credentials;
@@ -29,7 +90,7 @@ export class AuthService {
         if (err.code === 'P2002') {
           throw new GraphQLError('Email already exists', {
             extensions: {
-              code: 'BAD_USER_INPUT',
+              code: GRAPHQL_ERROR_CODES.BAD_USER_INPUT,
               invalidArgs: ['email'],
             },
           });
@@ -38,7 +99,25 @@ export class AuthService {
       console.log(err);
       throw new GraphQLError('Something went wrong', {
         extensions: {
-          code: 'INTERNAL_SERVER_ERROR',
+          code: GRAPHQL_ERROR_CODES.INTERNAL_SERVER_ERROR,
+        },
+      });
+    }
+  }
+  async signOut(token: string): Promise<BaseModel> {
+    try {
+      await this.prisma.session.delete({
+        where: { token },
+      });
+
+      return {
+        status: 'sucess',
+        message: 'Signed out successfully',
+      };
+    } catch (err) {
+      throw new GraphQLError('Something went wrong', {
+        extensions: {
+          code: GRAPHQL_ERROR_CODES.INTERNAL_SERVER_ERROR,
         },
       });
     }
@@ -51,150 +130,16 @@ export class AuthService {
   async verifyPassword(plain: string, hash: string): Promise<boolean> {
     return await argon.verify(hash, plain);
   }
+
   // Reddit like Username Generation
   generateRandomUsernaem(): string {
     // TODO: Move this to a constant
-    const adjectives = [
-      'cool',
-      'happy',
-      'fuzzy',
-      'brave',
-      'smart',
-      'funny',
-      'crazy',
-      'silly',
-      'witty',
-      'clever',
-      'kind',
-      'gentle',
-      'calm',
-      'quiet',
-    ];
-    const nouns = [
-      'cat',
-      'dog',
-      'tiger',
-      'lion',
-      'panda',
-      'bear',
-      'wolf',
-      'fox',
-      'rabbit',
-      'mouse',
-      'squirrel',
-      'hamster',
-      'guinea pig',
-      'hedgehog',
-      'ferret',
-      'chinchilla',
-      'gerbil',
-      'rabbit',
-      'mouse',
-      'squirrel',
-      'hamster',
-      'guinea pig',
-      'hedgehog',
-      'ferret',
-      'chinchilla',
-      'gerbil',
-      'rabbit',
-      'mouse',
-      'squirrel',
-      'hamster',
-      'guinea pig',
-      'hedgehog',
-      'ferret',
-      'chinchilla',
-      'gerbil',
-      'rabbit',
-      'mouse',
-      'squirrel',
-      'hamster',
-      'guinea pig',
-      'hedgehog',
-      'ferret',
-      'chinchilla',
-      'gerbil',
-      'rabbit',
-      'mouse',
-      'squirrel',
-      'hamster',
-      'guinea pig',
-      'hedgehog',
-      'ferret',
-      'chinchilla',
-      'gerbil',
-      'rabbit',
-      'mouse',
-      'squirrel',
-      'hamster',
-      'guinea pig',
-      'hedgehog',
-      'ferret',
-      'chinchilla',
-      'gerbil',
-      'rabbit',
-      'mouse',
-      'squirrel',
-      'hamster',
-      'guinea pig',
-      'hedgehog',
-      'ferret',
-      'chinchilla',
-      'gerbil',
-      'rabbit',
-      'mouse',
-      'squirrel',
-      'hamster',
-      'guinea pig',
-      'hedgehog',
-      'ferret',
-      'chinchilla',
-      'gerbil',
-      'rabbit',
-      'mouse',
-      'squirrel',
-      'hamster',
-      'guinea pig',
-      'hedgehog',
-      'ferret',
-      'chinchilla',
-      'gerbil',
-      'rabbit',
-      'mouse',
-      'squirrel',
-      'hamster',
-      'guinea pig',
-      'hedgehog',
-      'ferret',
-      'chinchilla',
-      'gerbil',
-      'rabbit',
-      'mouse',
-      'squirrel',
-      'hamster',
-      'guinea pig',
-      'hedgehog',
-      'ferret',
-      'chinchilla',
-      'gerbil',
-      'rabbit',
-      'mouse',
-      'squirrel',
-      'hamster',
-      'guinea pig',
-      'hedgehog',
-      'ferret',
-      'chinchilla',
-      'gerbil',
-      'rabbit',
-      'mouse',
-      'squirrel',
-    ];
 
     // Pick random adjective and noun
-    const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    const adjective =
+      USERNAME.ADJECTIVE[Math.floor(Math.random() * USERNAME.ADJECTIVE.length)];
+    const noun =
+      USERNAME.NOUN[Math.floor(Math.random() * USERNAME.NOUN.length)];
 
     // Append a random number (e.g., between 1000 and 9999) to reduce the chances of duplication.
     const randomNumber = Math.floor(Math.random() * 9000) + 1000;
@@ -202,11 +147,46 @@ export class AuthService {
     return `${adjective}${noun}${randomNumber}`;
   }
 
-  async getUserByEmail(email: string): Promise<User> {
+  async getUserByEmail(email: string) {
     return await this.prisma.user.findUnique({
       where: {
         email,
       },
     });
+  }
+
+  async ValidateSession(token: string): Promise<User> {
+    try {
+      const payload = await this.jwt.verifyAsync<JWTPayload>(token);
+      const session = await this.prisma.session.findFirst({
+        where: {
+          token,
+        },
+        include: {
+          user: true,
+        },
+      });
+      if (!session) {
+        throw new GraphQLError('Invalid token', {
+          extensions: {
+            code: GRAPHQL_ERROR_CODES.UNAUTHENTICATED,
+          },
+        });
+      }
+      return session.user;
+    } catch (err) {
+      if (err instanceof TokenExpiredError) {
+        throw new GraphQLError('Token expired please signout', {
+          extensions: {
+            code: GRAPHQL_ERROR_CODES.UNAUTHENTICATED,
+          },
+        });
+      }
+      throw new GraphQLError('Invalid token', {
+        extensions: {
+          code: GRAPHQL_ERROR_CODES.UNAUTHENTICATED,
+        },
+      });
+    }
   }
 }

@@ -1,6 +1,7 @@
-import { Field, InputType } from '@nestjs/graphql';
+import { Field, InputType, ObjectType } from '@nestjs/graphql';
 import { IsEmail, IsString, MinLength } from 'class-validator';
 import { Match } from './decorators';
+import { User } from './user.model';
 
 @InputType()
 export class SignupInput {
@@ -23,3 +24,26 @@ export class SignupInput {
   @Match('password', { message: 'Passwords do not match' })
   confirmPassword: string;
 }
+
+@InputType()
+export class SigninInput {
+  @Field()
+  @IsEmail({}, { message: 'Email must be valid' })
+  email: string;
+  @Field()
+  @IsString({ message: 'Password must be a string' })
+  @MinLength(6, { message: 'Password must be at least 6 characters long' })
+  password: string;
+}
+
+@ObjectType()
+export class SigninResponse {
+  @Field()
+  token: string;
+  @Field()
+  user: User;
+}
+
+export type JWTPayload = {
+  sub: string;
+};
