@@ -2,12 +2,29 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type BaseModel {
+  message: String!
+  status: String!
+}
+
 type Mutation {
+  Signin(signinInput: SigninInput!): SigninResponse!
+  Signout: BaseModel!
   Signup(signupInput: SignupInput!): User!
 }
 
 type Query {
   getUser: User!
+}
+
+input SigninInput {
+  email: String!
+  password: String!
+}
+
+type SigninResponse {
+  token: String!
+  user: User!
 }
 
 input SignupInput {

@@ -6,6 +6,4 @@ export class BaseModel {
   status: 'sucess' | 'error';
   @Field()
   message: string;
-  @Field({ nullable: true })
-  data?: any;
 }

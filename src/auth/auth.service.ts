@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService, TokenExpiredError } from '@nestjs/jwt';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import * as argon from 'argon2';
@@ -27,21 +31,11 @@ export class AuthService {
       const { email, password } = credentials;
       const user = await this.getUserByEmail(email);
       if (!user) {
-        throw new GraphQLError('Invalid credentials', {
-          extensions: {
-            code: GRAPHQL_ERROR_CODES.BAD_USER_INPUT,
-            invalidArgs: ['email', 'password'],
-          },
-        });
+        throw new UnauthorizedException('Invalid credentials');
       }
       const isValidPass = await this.verifyPassword(password, user.password);
       if (!isValidPass) {
-        throw new GraphQLError('Invalid credentials', {
-          extensions: {
-            code: GRAPHQL_ERROR_CODES.BAD_USER_INPUT,
-            invalidArgs: ['email', 'password'],
-          },
-        });
+        throw new UnauthorizedException('Invalid credentials');
       }
       const payload: JWTPayload = {
         sub: user.id,
@@ -63,11 +57,7 @@ export class AuthService {
         user,
       };
     } catch (err) {
-      throw new GraphQLError('Something went wrong', {
-        extensions: {
-          code: GRAPHQL_ERROR_CODES.INTERNAL_SERVER_ERROR,
-        },
-      });
+      throw new UnauthorizedException('Invalid credentials');
     }
   }
 
@@ -96,7 +86,6 @@ export class AuthService {
           });
         }
       }
-      console.log(err);
       throw new GraphQLError('Something went wrong', {
         extensions: {
           code: GRAPHQL_ERROR_CODES.INTERNAL_SERVER_ERROR,
@@ -109,17 +98,12 @@ export class AuthService {
       await this.prisma.session.delete({
         where: { token },
       });
-
       return {
         status: 'sucess',
         message: 'Signed out successfully',
       };
     } catch (err) {
-      throw new GraphQLError('Something went wrong', {
-        extensions: {
-          code: GRAPHQL_ERROR_CODES.INTERNAL_SERVER_ERROR,
-        },
-      });
+      throw new InternalServerErrorException('Something went wrong');
     }
   }
 
@@ -166,27 +150,12 @@ export class AuthService {
           user: true,
         },
       });
-      if (!session) {
-        throw new GraphQLError('Invalid token', {
-          extensions: {
-            code: GRAPHQL_ERROR_CODES.UNAUTHENTICATED,
-          },
-        });
-      }
       return session.user;
     } catch (err) {
       if (err instanceof TokenExpiredError) {
-        throw new GraphQLError('Token expired please signout', {
-          extensions: {
-            code: GRAPHQL_ERROR_CODES.UNAUTHENTICATED,
-          },
-        });
+        throw new UnauthorizedException('Token expired');
       }
-      throw new GraphQLError('Invalid token', {
-        extensions: {
-          code: GRAPHQL_ERROR_CODES.UNAUTHENTICATED,
-        },
-      });
+      throw new UnauthorizedException('Invalid auth token');
     }
   }
 }

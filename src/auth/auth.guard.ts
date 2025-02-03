@@ -1,7 +1,11 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { GqlExecutionContext } from '@nestjs/graphql';
-import { Observable } from 'rxjs';
 import { IS_PUBLIC_KEY } from 'src/decorators/auth.decorator';
 import { AuthService } from './auth.service';
 
@@ -11,9 +15,7 @@ export class AuthGuard implements CanActivate {
     private reflector: Reflector,
     private auth: AuthService,
   ) {}
-  canActivate(
-    context: ExecutionContext,
-  ): boolean | Promise<boolean> | Observable<boolean> {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -23,9 +25,14 @@ export class AuthGuard implements CanActivate {
     }
     const req = GqlExecutionContext.create(context).getContext().req;
     const token = this.extractTokenFromHeader(req);
+    if (!token) {
+      throw new UnauthorizedException('Token Missing');
+      return false;
+    }
 
-    const session = this.auth.ValidateSession(token);
+    const session = await this.auth.ValidateSession(token);
     if (!session) {
+      throw new UnauthorizedException('Invalid Token');
       return false;
     }
     req.user = session;
