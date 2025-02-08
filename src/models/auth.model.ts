@@ -36,7 +36,7 @@ export class SigninInput {
   password: string;
 }
 
-@ObjectType()
+@ObjectType({ description: 'Signin Response' })
 export class SigninResponse {
   @Field()
   token: string;

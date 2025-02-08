@@ -23,8 +23,8 @@ export class AuthResolver {
   async Signin(
     @Args('signinInput') signinInput: SigninInput,
   ): Promise<SigninResponse> {
-    const { user, token } = await this.auth.signIn(signinInput);
-    return { user, token };
+    const data = await this.auth.signIn(signinInput);
+    return data;
   }
   @Public()
   @Mutation(() => BaseModel)

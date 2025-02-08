@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
@@ -103,6 +104,11 @@ export class AuthService {
         message: 'Signed out successfully',
       };
     } catch (err) {
+      if (err instanceof PrismaClientKnownRequestError) {
+        if (err.code === 'P2025') {
+          throw new ForbiddenException('Invalid token');
+        }
+      }
       throw new InternalServerErrorException('Something went wrong');
     }
   }
